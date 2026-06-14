@@ -11,10 +11,10 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// MongoDB Connection (your provided URI)
+// MongoDB connection string
 const MONGODB_URI = 'mongodb+srv://Movie_Bot:tZGqdSzN6JaOt5ez@moviebot.bfksyk1.mongodb.net/botadmin?retryWrites=true&w=majority';
 
-// Define Bot Schema
+// Bot Schema
 const botSchema = new mongoose.Schema({
     botNumber: { type: String, required: true, unique: true, trim: true },
     active: { type: Boolean, default: true },
@@ -25,26 +25,54 @@ const Bot = mongoose.model('Bot', botSchema);
 
 // Connect to MongoDB
 mongoose.connect(MONGODB_URI)
-    .then(() => console.log('✅ Connected to MongoDB Atlas'))
-    .catch(err => console.error('❌ MongoDB connection error:', err));
+    .then(() => {
+        console.log('✅ Connected to MongoDB Atlas successfully!');
+        // Optional: create a test bot if collection is empty (for demo)
+        initializeTestData();
+    })
+    .catch(err => {
+        console.error('❌ MongoDB connection error:', err.message);
+        console.error('Please check your network and IP whitelist in MongoDB Atlas.');
+    });
 
-// ---------- API Routes ----------
+// Initialize sample data if collection is empty
+async function initializeTestData() {
+    try {
+        const count = await Bot.countDocuments();
+        if (count === 0) {
+            console.log('📝 No bots found. Adding demo bot numbers...');
+            await Bot.create([
+                { botNumber: '@SampleBot1', active: true },
+                { botNumber: '+1234567890', active: true },
+                { botNumber: 'Bot_Official', active: false }
+            ]);
+            console.log('✅ Demo bots added. You can now see them in the panel.');
+        }
+    } catch (err) {
+        console.error('Init error:', err.message);
+    }
+}
+
+// ---------- API ROUTES ----------
 
 // Get all bots
 app.get('/api/bots', async (req, res) => {
     try {
         const bots = await Bot.find().sort({ createdAt: -1 });
+        console.log(`📤 Sending ${bots.length} bots to client`);
         res.json(bots);
     } catch (err) {
+        console.error('GET /api/bots error:', err);
         res.status(500).json({ message: err.message });
     }
 });
 
-// Get stats: total bots & active count
+// Get stats
 app.get('/api/stats', async (req, res) => {
     try {
         const total = await Bot.countDocuments();
         const activeCount = await Bot.countDocuments({ active: true });
+        console.log(`📊 Stats - Total: ${total}, Active: ${activeCount}`);
         res.json({ total, activeCount });
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -64,6 +92,7 @@ app.post('/api/bots', async (req, res) => {
         }
         const newBot = new Bot({ botNumber: botNumber.trim(), active: true });
         await newBot.save();
+        console.log(`➕ Added bot: ${botNumber}`);
         res.status(201).json(newBot);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -80,6 +109,7 @@ app.patch('/api/bots/:id/active', async (req, res) => {
             { new: true }
         );
         if (!bot) return res.status(404).json({ message: 'Bot not found' });
+        console.log(`🔄 Bot ${bot.botNumber} active status -> ${active}`);
         res.json(bot);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -91,17 +121,20 @@ app.delete('/api/bots/:id', async (req, res) => {
     try {
         const bot = await Bot.findByIdAndDelete(req.params.id);
         if (!bot) return res.status(404).json({ message: 'Bot not found' });
+        console.log(`🗑️ Deleted bot: ${bot.botNumber}`);
         res.json({ message: 'Bot deleted successfully' });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
 });
 
-// Serve frontend for any other route
-app.get('*', (req, res) => {
+// Root route
+app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Start server
 app.listen(PORT, () => {
-    console.log(`🚀 Admin panel running at http://localhost:${PORT}`);
+    console.log(`🚀 Server running at http://localhost:${PORT}`);
+    console.log(`📡 API test: http://localhost:${PORT}/api/bots`);
 });
