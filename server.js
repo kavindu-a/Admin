@@ -11,7 +11,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// MongoDB connection string (provided by you)
+// MongoDB Connection (your provided URI)
 const MONGODB_URI = 'mongodb+srv://Movie_Bot:tZGqdSzN6JaOt5ez@moviebot.bfksyk1.mongodb.net/botadmin?retryWrites=true&w=majority';
 
 // Define Bot Schema
@@ -25,10 +25,10 @@ const Bot = mongoose.model('Bot', botSchema);
 
 // Connect to MongoDB
 mongoose.connect(MONGODB_URI)
-    .then(() => console.log('✅ MongoDB connected'))
-    .catch(err => console.error('MongoDB connection error:', err));
+    .then(() => console.log('✅ Connected to MongoDB Atlas'))
+    .catch(err => console.error('❌ MongoDB connection error:', err));
 
-// ---------- API ROUTES ----------
+// ---------- API Routes ----------
 
 // Get all bots
 app.get('/api/bots', async (req, res) => {
@@ -58,7 +58,6 @@ app.post('/api/bots', async (req, res) => {
         if (!botNumber || botNumber.trim() === '') {
             return res.status(400).json({ message: 'Bot number is required' });
         }
-        // Check for duplicate
         const existing = await Bot.findOne({ botNumber: botNumber.trim() });
         if (existing) {
             return res.status(409).json({ message: 'Bot number already exists' });
@@ -78,7 +77,7 @@ app.patch('/api/bots/:id/active', async (req, res) => {
         const bot = await Bot.findByIdAndUpdate(
             req.params.id,
             { active: active === true },
-            { new: true, runValidators: true }
+            { new: true }
         );
         if (!bot) return res.status(404).json({ message: 'Bot not found' });
         res.json(bot);
@@ -98,7 +97,7 @@ app.delete('/api/bots/:id', async (req, res) => {
     }
 });
 
-// Serve frontend for any unmatched route (SPA support)
+// Serve frontend for any other route
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
